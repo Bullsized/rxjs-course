@@ -1,0 +1,297 @@
+npm run server  << for the server
+npm start       << for the project
+
+IN CASE THE PROJECT DOES NOT BOOT:
+in the package.json, r7 & r8
+    "start": "./node_modules/.bin/ng serve  --proxy-config ./proxy.json",
+    "server": "./node_modules/.bin/ts-node -P ./server/server.tsconfig.json ./server/server.ts",
+:IN CASE THE PROJECT DOES NOT BOOT
+
+
+
+LINKS:
+https://github.com/angular-university/rxjs-course
+:LINKS
+
+
+
+WHAT IS RXJS:
+Reactive Extensions for JavaScript.
+A better way of combining streams.
+A variable with a $ at the end means it's an observable.
+const interval$;
+:WHAT IS RXJS
+
+
+
+WHAT IS A STREAM:
+they can be multi value and they will never complete(setInterval());
+or they can emit a value and be done (setTimeout()).
+
+An observable will only become a stream if we subscribe to it.
+const interval$ = interval(1000); is only the definition/blueprint
+of the stream, this is not an instance of a stream, we're not 
+specifying what to do with the stream.
+:WHAT IS A STREAM
+
+
+
+OBSERVABLES:
+Observable.create(); lets you create an observable from scratch.
+
+const http$ = Observable.create(observer => {
+    fetch('/api/courses')
+        .then (response => {
+           return response.json();
+        })
+        .then(body => {
+            observer.next();
+
+            observer.complete();
+        })
+        .catch(err => {
+            observer.error(err);
+        });
+});
+
+http$.subscribe(
+    courses => console.log(courses)
+    () => {},   // this can be replaced with `noop` <- no operation 
+                // (RxJS function)
+    // noop,       ^                  
+    () => console.log('completed')
+)
+
+the observer is what we use to implement the observable
+
+in order to unsubscribe from an observable:
+const sub = inverval$.subscribe(val => console.log("stream 1 => " + val));
+sub.unsubscribe();
+
+by using the pipe: 
+    | async
+we do not need to subscribe for an observable, also Angular unsubscribes
+to it once the component is destroyed.
+:OBSERVABLES
+
+
+
+RXJS METHODS:
+interval -
+const interval$ = interval(1000); for every 1s it emits;
+
+timer -
+const timer$ = timer(3000, 1000); it emits every 1s after 3s;
+
+fromEvent -
+const fromEvent$ = fromEvent(document, 'click'); 
+
+next -
+used to emit values in the observable
+
+of -
+used to create an observable: const source1$ = of(1, 2, 3);
+
+fromPromise 
+    takes a promise and makes observable out if it
+:RXJS METHODS
+
+
+
+RXJS OPERATORS:
+pipe 
+    allows us to chain multiple operators in order to produce new observable
+
+map
+    takes a mapping function and the output gives us another observable
+
+    const courses$ = http$
+    .pipe(
+        map(res => Object.values(res['payload]))
+    );
+
+    courses$.subscribe();
+
+shareReplay
+    it makes sure that the HTTP response is passed to each new subscription 
+    instead of being executed again and again. 
+
+tap
+    meant to be used to produce side effect in our observables chain, for 
+    example updating a variable at the level of the component or create a
+    console.log:
+
+    const courses$ = http$
+    .pipe(
+        tap(() => console.log('yo')),
+        map(res => Object.values(res['payload])),
+        shareReplay()
+    )
+
+concat
+    concatenates observables
+
+    const result$ = concat(source1$, source2$, source3$);
+    result$.subscribe(console.log) <- this will log the subscribed values
+
+concatMap
+    combines observables - waiting for one observable to complete before subscribing
+    and using another observable
+
+merge
+    take multiple observables, subscribe to all of them at the same time and take
+    their values. as soon as an observable emits a value - it is added to another 
+    observable
+
+    const interval1$ = interval(1000);
+
+    const interval2$ = interval1$.pipe(
+        map(val => 10 * val);
+    )
+
+    const result$ = merge(interval1$, interval2$);
+
+    result$.subscribe(console.log);
+
+mergeMap
+    pretty much like the concatMap, but it does not end for the observable to complete
+    emitting
+
+exhaustMap
+    projects each source value to an observable which is merged in the output observable
+    only if the previous projected observable has completed
+
+debounceTime
+    like delay but passes only the most recent value from each burst of emissions
+    useful for search inputs
+
+distinctUntilChanges
+    with this operator there are no duplicate values in the output
+
+switchMap
+    maps each value to an observable then flattens all of these inner observables using
+    switch 1 10 10 10 DONE with 1->, 3 30 30 UNSUBSCRIBE because it received 5->, 5 50 50 50
+
+catchError
+    catches an error. inside the pipe:
+    catchError(err => {})
+    it display another observable on error: catchError(err => of ([{id: 0}])); <- this is called
+    an recovery observable.
+
+finalize
+    takes a function and executes it when th pipe completes or errors out
+    finalize(() => { console.log('finalize executed') })
+
+retryWhen
+    receives errors observable and conditionally retries the request
+    retryWhen(errors => errors.pipe(
+        delayWhen(() => timer(2000)) // <- delayed when 2secs have passed
+    ))
+
+startWith
+    returns an observable that, at the moment of subscription, will synchronously emit all values
+    provided to this operator, then subscribe to the source and mirror all of its emissions to
+    subscribers
+    timer(1000)
+        .pipe(
+            map(() => 'timer emit'),
+            startWith('timer start')
+        )
+        .subscribe(x => console.log(x));
+    // results:
+    // "timer start"
+    // "timer emit"
+
+debounceTime()
+    once the input is stable for x ms, then it will yield an input
+    debounceTime(400)
+
+throttle
+    limits the output rate/value by a certain time span
+    throttle(() => { interval(500) })
+    difference between debounce and throttle is that the debounce always gets the last value of
+    the stream, while throttle gets the first before the delay. 
+
+throttleTime
+    internally creates the interval
+    throttleTime(500)
+
+forkJoin
+    allows us to launch several tasks in parallel, wait for them to complete and then we can
+    get the result of each task and use those combined tasks together
+    for example - merge 2 endpoints into one stream when both requests are completed
+    forkJoin(courses$, lessons$).subscribe();
+
+first
+    emits only the first value (or emits only the first value that passes some test)
+
+take
+    takes the first count values from the source, then completes
+    take(2)
+
+withLatestFrom
+   allow us to combine multiple observables together, long running or not, by taking the 
+   latest value emitted from each observable and providing that to the next operator in 
+   the chain or to the subscribe method as a tuple value.
+   withLatestFrom($courses) <- another observable as an argument
+:RXJS OPERATORS
+
+
+
+CREATE OWN RXJS OPERATOR:
+operator is called debug and can be called for example:
+pipe(
+    debug(RxJsLoggingLevel.INFO, "search")
+)
+
+import {Observable} from 'rxjs';
+import {tap} from 'rxjs/operators';
+
+export enum RxJsLoggingLevel {
+    TRACE,
+    DEBUG,
+    INFO,
+    ERROR
+}
+
+let rxjsLoggingLevel = RxJsLoggingLevel.INFO;
+
+export function setRxJsLoggingLevel(level: RxJsLoggingLevel) {
+    rxjsLoggingLevel = level;
+}
+
+export const debug = (level: number, message:string) =>
+    (source: Observable<any>) => source
+        .pipe(
+            tap(val => {
+                if (level >= rxjsLoggingLevel) {
+                    console.log(message + ': ', val);
+                }
+            })
+        );
+:CREATE OWN RXJS OPERATOR
+
+
+SUBJECT:
+it is both an observer and an observable
+
+const subject = new Subject();
+
+if you want to assign a variable to an observable:
+const series$ = subject.asObservable();
+but you cannot unsubscribe to that observable 
+
+to complete/finalize a subject:
+subject.complete();
+
+behavior subject - it supports late subscriptions
+const subject = new BehaviorSubject(0);
+0 is the initiaa value.
+
+async subject - it will wait for observable completion before emitting any values to the 
+multiple subscribers and it only gets the last value
+const subject = new AsyncSubject();
+
+replay subject - replays the complete observable to all of the late subscribers
+const subject = new ReplaySubject();
+:SUBJECT
